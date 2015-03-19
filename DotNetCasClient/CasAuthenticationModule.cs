@@ -70,6 +70,12 @@ namespace DotNetCasClient
         /// <param name="e">Not used</param>
         private static void OnBeginRequest(object sender, EventArgs e)
         {
+            // Validate the ticket coming back from the CAS server
+            if (!RequestEvaluator.GetRequestIsAppropriateForCasAuthentication())
+            {
+                logger.Debug("BeginRequest bypassed for " + HttpContext.Current.Request.RawUrl);
+                return;
+            }
             CasAuthentication.Initialize();
 
             HttpContext context = HttpContext.Current;
@@ -127,15 +133,15 @@ namespace DotNetCasClient
         /// <param name="e">Not used</param>
         private static void OnAuthenticateRequest(object sender, EventArgs e)
         {
-            HttpContext context = HttpContext.Current;
-            HttpRequest request = context.Request;
-
             // Validate the ticket coming back from the CAS server
             if (!RequestEvaluator.GetRequestIsAppropriateForCasAuthentication())
             {
-                logger.Debug("AuthenticateRequest bypassed for " + request.RawUrl);
+                logger.Debug("AuthenticateRequest bypassed for " + HttpContext.Current.Request.RawUrl);
                 return;
             }
+            
+            HttpContext context = HttpContext.Current;
+            HttpRequest request = context.Request;
 
             // Validate the ticket coming back from the CAS server
             if (RequestEvaluator.GetRequestHasCasTicket())
@@ -178,55 +184,54 @@ namespace DotNetCasClient
         /// <param name="e">Not used</param>
         private static void OnEndRequest(object sender, EventArgs e)
         {
+            if (!RequestEvaluator.GetRequestIsAppropriateForCasAuthentication())
+            {
+-               logger.Debug("No EndRequest processing for " + HttpContext.Current.Request.RawUrl);
+                return;
+            }
+            
             HttpContext context = HttpContext.Current;
             HttpRequest request = context.Request;
+            
+            logger.Debug("Starting EndRequest for " + request.RawUrl);
 
-            if (RequestEvaluator.GetRequestIsAppropriateForCasAuthentication())
+            if (RequestEvaluator.GetRequestRequiresGateway())
             {
-                logger.Debug("Starting EndRequest for " + request.RawUrl);
-
-                if (RequestEvaluator.GetRequestRequiresGateway())
-                {
-                    logger.Info("  Performing Gateway Authentication");
-                    CasAuthentication.GatewayAuthenticate(true);
-                }
-                else if (RequestEvaluator.GetUserDoesNotAllowSessionCookies())
-                {
-                    logger.Info("  Cookies not supported.  Redirecting to Cookies Required Page");
-                    CasAuthentication.RedirectToCookiesRequiredPage();
-                }
-                else if (RequestEvaluator.GetRequestHasCasTicket())
-                {
-                    logger.Info("  Redirecting from login callback");
-                    CasAuthentication.RedirectFromLoginCallback();
-                }
-                else if (RequestEvaluator.GetRequestHasGatewayParameter()) 
-                {
-                    logger.Info("  Redirecting from failed gateway callback");
-                    CasAuthentication.RedirectFromFailedGatewayCallback();
-                }
-                else if (RequestEvaluator.GetRequestIsUnauthorized() && !String.IsNullOrEmpty(CasAuthentication.NotAuthorizedUrl))
-                {
-                    logger.Info("  Redirecting to Unauthorized Page");
-                    CasAuthentication.RedirectToNotAuthorizedPage();
-                }
-                else if (RequestEvaluator.GetRequestIsUnauthorized())
-                {
-                    logger.Info("  Redirecting to CAS Login Page (Unauthorized without NotAuthorizedUrl defined)");
-                    CasAuthentication.RedirectToLoginPage(true);
-                }
-                else if (RequestEvaluator.GetRequestIsUnAuthenticated())
-                {
-                    logger.Info("  Redirecting to CAS Login Page");
-                    CasAuthentication.RedirectToLoginPage();
-                }
-
-                logger.Debug("Ending EndRequest for " + request.RawUrl);
+                logger.Info("  Performing Gateway Authentication");
+                CasAuthentication.GatewayAuthenticate(true);
             }
-            else
+            else if (RequestEvaluator.GetUserDoesNotAllowSessionCookies())
             {
-                logger.Debug("No EndRequest processing for " + request.RawUrl);
+                logger.Info("  Cookies not supported.  Redirecting to Cookies Required Page");
+                CasAuthentication.RedirectToCookiesRequiredPage();
             }
+            else if (RequestEvaluator.GetRequestHasCasTicket())
+            {
+                logger.Info("  Redirecting from login callback");
+                CasAuthentication.RedirectFromLoginCallback();
+            }
+            else if (RequestEvaluator.GetRequestHasGatewayParameter()) 
+            {
+                logger.Info("  Redirecting from failed gateway callback");
+                CasAuthentication.RedirectFromFailedGatewayCallback();
+            }
+            else if (RequestEvaluator.GetRequestIsUnauthorized() && !String.IsNullOrEmpty(CasAuthentication.NotAuthorizedUrl))
+            {
+                logger.Info("  Redirecting to Unauthorized Page");
+                CasAuthentication.RedirectToNotAuthorizedPage();
+            }
+            else if (RequestEvaluator.GetRequestIsUnauthorized())
+            {
+                logger.Info("  Redirecting to CAS Login Page (Unauthorized without NotAuthorizedUrl defined)");
+                CasAuthentication.RedirectToLoginPage(true);
+            }
+            else if (RequestEvaluator.GetRequestIsUnAuthenticated())
+            {
+                logger.Info("  Redirecting to CAS Login Page");
+                CasAuthentication.RedirectToLoginPage();
+            }
+
+            logger.Debug("Ending EndRequest for " + request.RawUrl);
         }
    }
 }
