@@ -56,8 +56,6 @@ namespace DotNetCasClient.Utils
         /// <returns>True if the request URL contains a CAS ticket, otherwise False</returns>
         internal static bool GetRequestIsCasAuthenticationResponse()
         {
-            CasAuthentication.Initialize();
-
             HttpContext context = HttpContext.Current;
             HttpRequest request = context.Request;
 
