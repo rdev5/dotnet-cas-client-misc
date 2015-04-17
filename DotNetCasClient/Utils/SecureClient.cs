@@ -13,6 +13,7 @@ namespace DotNetCasClient.Utils
     /// <summary>
     /// For establishing SSL connection with remote web service and returning response in SecureString object.
     /// </summary>
+    /// <author>Matt Borja</author>
     public sealed class SecureClient
     {
         private static bool ValidateServerCertificate(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors)
