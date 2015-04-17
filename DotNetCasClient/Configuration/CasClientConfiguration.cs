@@ -79,6 +79,9 @@ namespace DotNetCasClient.Configuration
 
         // Names for the supported Cache Ticket state provider
         public const string CACHE_PROXY_TICKET_MANAGER = "CacheProxyTicketManager";
+
+        // Raw GET request format for /clearPass using SecureClient
+        public const string CLEARPASS_GET_REQUEST = "clearPassGetRequest";
         #endregion
 
         #region Properties
@@ -91,6 +94,31 @@ namespace DotNetCasClient.Configuration
             get
             {
                 return ConfigurationManager.GetSection("casClientConfig") as CasClientConfiguration;
+            }
+        }
+
+        /// <summary>
+        /// Formatted GET request for /clearPass using SecureClient
+        /// {0} = clearPassUri.Uri.PathAndQuery (i.e. /clearPass?ticket=...)
+        /// {1} = clearPassUri.Uri.Authority (i.e. cas.example.com:443)
+        /// 
+        /// Example:
+        /// 
+        /// GET {0} HTTP/1.1
+        /// Host: {1}
+        /// Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8
+        /// User-Agent: Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2272.118 Safari/537.36
+        /// Cache-Control: no-cache
+        /// Pragma: no-cache
+        /// Connection: close
+        /// (including two newline characters here)
+        /// </summary>
+        [ConfigurationProperty(CLEARPASS_GET_REQUEST, IsRequired = true)]
+        public string ClearPassGetRequest
+        {
+            get
+            {
+                return this[CLEARPASS_GET_REQUEST] as string;
             }
         }
 

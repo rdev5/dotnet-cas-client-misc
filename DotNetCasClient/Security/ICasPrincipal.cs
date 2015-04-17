@@ -18,6 +18,7 @@
  */
 
 using System.Collections.Generic;
+using System.Security;
 using System.Security.Principal;
 
 namespace DotNetCasClient.Security
@@ -80,5 +81,10 @@ namespace DotNetCasClient.Security
         /// Allows for a mechanism to retrieve the principal's password.
         /// </summary>
         string GetPassword();
+
+        /// <summary>
+        /// Allows for a mechanism to retrieve the principal's password as a SecureString object.
+        /// </summary>
+        SecureString GetSecurePassword();
     }
 }

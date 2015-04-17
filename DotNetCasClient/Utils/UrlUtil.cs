@@ -185,7 +185,10 @@ namespace DotNetCasClient.Utils
                 ub = new EnhancedUriBuilder(CasAuthentication.ServerName);
                 ub.Path = request.Url.AbsolutePath;
             }
-            ub.QueryItems.Add(request.QueryString);
+
+            // Disallow dynamic parameters (see https://github.com/Jasig/dotnet-cas-client/issues/23)
+            // ub.QueryItems.Add(request.QueryString);
+
             ub.QueryItems.Remove(CasAuthentication.TicketValidator.ArtifactParameterName);
 
             if (gateway)
@@ -196,6 +199,7 @@ namespace DotNetCasClient.Utils
             {
                 ub.QueryItems.Remove(CasAuthentication.GatewayParameterName);
             }
+
             return ub.Uri.AbsoluteUri;
         }
 

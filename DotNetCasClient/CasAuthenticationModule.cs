@@ -70,12 +70,13 @@ namespace DotNetCasClient
         /// <param name="e">Not used</param>
         private static void OnBeginRequest(object sender, EventArgs e)
         {
-            // Validate the ticket coming back from the CAS server
+            // Validate the ticket coming back from the CAS server (NETC-55)
             if (!RequestEvaluator.GetRequestIsAppropriateForCasAuthentication())
             {
                 logger.Debug("BeginRequest bypassed for " + HttpContext.Current.Request.RawUrl);
                 return;
             }
+
             CasAuthentication.Initialize();
 
             HttpContext context = HttpContext.Current;
@@ -104,6 +105,7 @@ namespace DotNetCasClient
             }
 
             // Detect & process inbound proxy callback verifications from the CAS server
+            
             if (CasAuthentication.ProxyTicketManager != null && RequestEvaluator.GetRequestIsProxyResponse())
             {
                 logger.Info("Processing Proxy Callback request");
@@ -139,7 +141,7 @@ namespace DotNetCasClient
                 logger.Debug("AuthenticateRequest bypassed for " + HttpContext.Current.Request.RawUrl);
                 return;
             }
-            
+
             HttpContext context = HttpContext.Current;
             HttpRequest request = context.Request;
 
@@ -186,13 +188,13 @@ namespace DotNetCasClient
         {
             if (!RequestEvaluator.GetRequestIsAppropriateForCasAuthentication())
             {
--               logger.Debug("No EndRequest processing for " + HttpContext.Current.Request.RawUrl);
+                logger.Debug("EndRequest bypassed for " + HttpContext.Current.Request.RawUrl);
                 return;
             }
-            
+
             HttpContext context = HttpContext.Current;
             HttpRequest request = context.Request;
-            
+
             logger.Debug("Starting EndRequest for " + request.RawUrl);
 
             if (RequestEvaluator.GetRequestRequiresGateway())

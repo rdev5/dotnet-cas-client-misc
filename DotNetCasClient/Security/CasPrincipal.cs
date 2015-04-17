@@ -19,7 +19,11 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
+using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
+using System.Security;
 using System.Security.Principal;
 using System.Web;
 using System.Web.Security;
@@ -81,12 +85,13 @@ namespace DotNetCasClient.Security
             private set;
         }
 
-
         /// <summary>
         /// The implementation uses the CAS clearPass extension to obtain the user's password
         /// by requesting a proxy ticket for clearPass and parsing out the user's password that
         /// is returned as part of the response enclosed within <![CDATA[<cas:credentials>]]> elements.
         /// </summary>
+
+        [Obsolete("This method returns plaintext password in memory. Please use GetSecurePassword instead.")]
         public string GetPassword()
         {
             string password = null;
@@ -139,6 +144,129 @@ namespace DotNetCasClient.Security
             }
             
             return password;
+        }
+
+        /// <summary>
+        /// The implementation uses the CAS clearPass extension to obtain the user's password
+        /// by requesting a proxy ticket for clearPass and parsing out the user's password that
+        /// is returned as part of the response enclosed within <![CDATA[<cas:credentials>]]> elements.
+        /// Returned object is a SecureString.
+        /// </summary>
+        public SecureString GetSecurePassword()
+        {
+            EnhancedUriBuilder clearPassUri = new EnhancedUriBuilder(CasAuthentication.CasServerUrlPrefix);
+            clearPassUri.Path += "clearPass";
+
+            string proxyTicket = CasAuthentication.GetProxyTicketIdFor(clearPassUri.Uri.AbsoluteUri);
+
+            if (string.IsNullOrEmpty(proxyTicket))
+            {
+                throw new HttpException("Unable to obtain CAS Proxy Ticket for clearPass.");
+            }
+
+            clearPassUri.QueryItems.Add(CasClientConfiguration.Config.ArtifactParameterName, proxyTicket);
+
+            var secureClearPassResponse = new SecureString();
+
+            try
+            {
+                var body = String.Format(CasClientConfiguration.Config.ClearPassGetRequest, clearPassUri.Uri.PathAndQuery, clearPassUri.Uri.Authority);
+
+                secureClearPassResponse = SecureClient.SecureHttpRequest(clearPassUri.Uri, body, 2000);
+
+                if (secureClearPassResponse.Length == 0)
+                {
+                    throw new HttpException("ClearPass service returned an empty response.");
+                }
+            }
+            catch (Exception e)
+            {
+                throw new HttpException(
+                    "Unable to obtain clearPass response from CAS. Review CAS logs and ensure the proxy chain is configured correctly.",
+                    e);
+            }
+
+            // Marshall into plaintext and return final
+            var securePassword = new SecureString();
+
+            // Setup pinned variables in memory
+            var insecureClearPassResponse = "";
+            var insecurePassword = "";
+            var unmanagedString = IntPtr.Zero;
+
+            var gcHandler = GCHandle.Alloc(insecureClearPassResponse, GCHandleType.Pinned);
+            var pwHandler = GCHandle.Alloc(insecurePassword, GCHandleType.Pinned);
+            var ptrHandler = GCHandle.Alloc(unmanagedString, GCHandleType.Pinned);
+
+            try
+            {
+                var xmlReaderSetting = new XmlReaderSettings
+                {
+                    ConformanceLevel = ConformanceLevel.Auto,
+                    IgnoreWhitespace = true
+                };
+
+                unmanagedString = Marshal.SecureStringToGlobalAllocUnicode(secureClearPassResponse);
+                insecureClearPassResponse = Marshal.PtrToStringUni(unmanagedString);
+
+                if (insecureClearPassResponse == null)
+                {
+                    throw new AccessViolationException("ClearPass response was erased from memory.");
+                }
+
+                using (TextReader stringReader = new StringReader(insecureClearPassResponse))
+                {
+                    using (var xmlReader = XmlReader.Create(stringReader, xmlReaderSetting))
+                    {
+                        try
+                        {
+                            if (xmlReader.ReadToFollowing("cas:credentials"))
+                            {
+                                insecurePassword = xmlReader.ReadElementString();
+
+                                foreach (char t in insecurePassword)
+                                {
+                                    securePassword.AppendChar(t);
+                                }
+                            }
+
+                            if (securePassword.Length == 0)
+                            {
+                                throw new HttpException(
+                                    "No password was received from CAS. Review clearPass configuration for CAS and ensure the feature is turned on");
+                            }
+                        }
+                        finally
+                        {
+                            // Scrub insecure variables
+                            insecurePassword = null;
+                            insecureClearPassResponse = null;
+
+                            // Explicitly close and dispose xmlReader
+                            xmlReader.Close();
+                            ((IDisposable)xmlReader).Dispose();
+
+                            // Explicitly close and dispose TextReader
+                            stringReader.Close();
+                            stringReader.Dispose();
+                        }
+                    }
+                }
+            }
+
+            // Ensure cleanup
+            finally
+            {
+                pwHandler.Free();
+                gcHandler.Free();
+                ptrHandler.Free();
+
+                Marshal.ZeroFreeGlobalAllocUnicode(unmanagedString);
+
+                secureClearPassResponse.Clear();
+            }
+
+            return securePassword;
         }
         #endregion
 
