@@ -262,8 +262,6 @@ namespace DotNetCasClient.Security
                 ptrHandler.Free();
 
                 Marshal.ZeroFreeGlobalAllocUnicode(unmanagedString);
-
-                secureClearPassResponse.Clear();
             }
 
             return securePassword;
